@@ -10,7 +10,7 @@ def encode_tags(df):
     Returns:
         pandas.DataFrame: modified with encoded tags
     """
-    tags = df["tags"].tolist()
+    tags = df["tags"].unique()
     # create a unique list of tags and then create a new column for each tag
         
     return df
