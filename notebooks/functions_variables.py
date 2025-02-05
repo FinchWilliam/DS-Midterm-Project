@@ -18,7 +18,7 @@ def encode_tags(df, min_to_drop = 0):
     df = pd.get_dummies(df, columns=['tags'], dummy_na=True)
     df = df.groupby('property_id').sum().reset_index()
     column_sums = df.drop('property_id', axis=1).sum()
-    small_columns = column_sums[column_sums < 20]
+    small_columns = column_sums[column_sums <= min_to_drop]
     small_columns_list = small_columns.index.tolist()
     df = df.drop(small_columns_list, axis=1)
     return df
