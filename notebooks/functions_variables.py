@@ -3,6 +3,10 @@ import pandas as pd
 from geopy.geocoders import Nominatim 
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 import time
+import numpy as np
+import os
+import json
+
 
 def encode_tags(df_original, min_to_drop = 0):
 
@@ -154,3 +158,53 @@ def get_downtown_coordinates(df, city_col, state_col, batch_size=10, max_retries
             df.loc[index, 'city_lon'] = coordinates[city_state][1]
 
     return df
+
+def clean_data(df):
+    """Use this to clean all the data from raw data to the final product
+
+    Args:
+    df (pandas.DataFrame)
+
+    Returns:
+    pd.DataFrame cleaned up and ready for machine learning
+    """
+
+    return df
+
+def load_data(folder_name):
+    """Use this to load the data from multiple json files into one dataframe
+
+    Args:
+    folder_name(string): the name of the folder containing all the json files
+
+    Returns
+    pd.DataFrame: Dataframe containing all the information (unprocessed)
+    
+    """
+    filenames = os.listdir(folder_name)
+    df = pd.DataFrame()
+    empty_files = []
+    #Iterate through every data file we have
+    for file in filenames:
+        #ensure files are "json" files
+        if file.endswith(".json"):
+            file_path = os.path.join(folder_name, file)
+
+            with open(file_path, 'r') as f:
+                try:
+                    data = json.load(f)
+                    #create a small dataframe which we will add onto the large one
+                    small_df = pd.DataFrame(data['data']['results'])
+                    # print(file, "Loaded Sucessfully") - for testing purposes
+                    #add the new data to the bottom of our dataframe
+                    if small_df.empty:
+                        # print("file is empty:", file)
+                        empty_files.append(file)
+                    else:
+                        df = pd.concat([df, small_df], ignore_index = True)
+                except json.JSONDecodeError as e:
+                    #print if there was an error
+                    print("Error Decoding file:", e, file)
+        else:
+            #print out any files that are not part of it
+            print("Not a Json:", file)
