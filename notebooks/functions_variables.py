@@ -168,7 +168,89 @@ def clean_data(df):
     Returns:
     pd.DataFrame cleaned up and ready for machine learning
     """
-
+    columns_to_drop = ['primary_photo',
+                   'last_update_date',
+                     'source', 
+                      'permalink',
+                        'status',
+                          'list_date',
+                           'open_houses',
+                            'branding',
+                             'list_price',
+                              'lead_attributes',
+                                'photos',
+                                'virtual_tours',
+                                'other_listings',
+                                 'listing_id',
+                                  'price_reduced_amount',
+                                   'matterport',
+                                    'sold_date',
+                                     'products',
+                                      'street_view_url',
+                                       'community',
+                                        'county',
+                                         'line',
+                                           'flags',
+                                            'name',
+                                             'baths_1qtr',
+                                              'sub_type',
+                                               'baths_full',
+                                                'baths_half',
+                                                 'baths_3qtr',
+                                                  'state_code']
+    desc_df = break_it_down(df['description'])
+    columns_to_drop.append('description')
+    df[desc_df.columns] = desc_df
+    loc_df = break_it_down(df['location'])
+    columns_to_drop.append('location')
+    df[loc_df.columns] = loc_df
+    address_df = break_it_down(df['address'])
+    columns_to_drop.append('address')
+    df[address_df.columns] = address_df
+    coordinate_df = break_it_down(df['coordinate'])
+    columns_to_drop.append('coordinate')
+    df[coordinate_df.columns] = coordinate_df
+    df = df.dropna(subset=['sold_price'])
+    df = df.drop(columns=columns_to_drop, axis=1)
+    df['garage'] = df['garage'].fillna(0)
+    lon_lat_dict = df[['city', 'lon', 'lat']].groupby('city').mean().transpose().to_dict()
+    df = item_replacement(lon_lat_dict, df, 'city', 'lon', 'lat')
+    df[df['lon'].isnull()].shape
+    missing_property_dict = {'Boone': {'lon': -93.885490, 'lat': 42.060650},
+                'Garnett': {'lon': 81.2454, 'lat': 32.6063},
+                'Charlton Heights': {'lon': -81.24385, 'lat': 38.13673}}
+    df = item_replacement(missing_property_dict, df, 'city', 'lon', 'lat')
+    df = df.rename(columns={'lat':'property_lat', 'lon': 'property_lon'})
+    df['city'] = df['city'].fillna('Columbus')
+    type_mapping = {'other': 'land',
+                'condos': 'condo',
+                np.nan : 'land',
+                }
+    df['type'] = df['type'].replace(type_mapping)
+    df = df[(df['type'] != 'condo_townhome_rowhome_coop') & (df['type'] != 'duplex_triplex')]
+    to_change_list = ['year_built', 'sqft', 'baths', 'stories', 'beds']
+    for col in to_change_list:
+        df.loc[(df['type'] == 'land') & (df[col].isna()), col] = 0 
+    mean_year = df['year_built'].mean().astype(int)
+    df['year_built'] = df['year_built'].fillna(mean_year)
+    bed_bath_dict = df[['type', 'beds', 'baths']].groupby('type').mean().astype(int).transpose().to_dict()
+    df = item_replacement(bed_bath_dict, df, 'type', 'beds','baths')
+    df['stories'] = df['stories'].fillna(1)
+    sqfts_dict = df[['city', 'type', 'sqft', 'lot_sqft']].groupby(['type','city']).mean().transpose().to_dict()
+    df = sqfts_replacement(sqfts_dict, df)
+    sqfts_dict_2 = df[['type', 'sqft', 'lot_sqft']].groupby('type').mean().transpose().to_dict()
+    df = item_replacement(sqfts_dict_2, df, 'type', 'sqft', 'lot_sqft')
+    int_columns = ['year_built', 'sqft', 'lot_sqft', 'baths','garage','stories','beds', 'postal_code']
+    df[int_columns] = df[int_columns].astype(int)
+    category_columns = ['type']
+    df[category_columns] = df[category_columns].astype('category')
+    float_columns = ['property_lon', 'property_lat']
+    df[float_columns] = df[float_columns].astype('float64')
+    df['sold_price'] = df['sold_price'].astype('int')
+    df = encode_tags(df,min_to_drop=5)
+    df = get_downtown_coordinates(df=df,city_col='city',state_col='state')
+    city_columns = ['city_lat', 'city_lon']
+    df = df.drop(['city', 'state'], axis=1)
     return df
 
 def load_data(folder_name):
@@ -208,3 +290,4 @@ def load_data(folder_name):
         else:
             #print out any files that are not part of it
             print("Not a Json:", file)
+    return df
