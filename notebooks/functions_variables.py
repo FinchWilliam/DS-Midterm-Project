@@ -33,6 +33,8 @@ def encode_tags(df_original, min_to_drop = 0):
     small_columns_list = small_columns.index.tolist()
     df = df.drop(small_columns_list, axis=1)
     df = pd.merge(df_original, df, how='left', on='property_id')
+    boolean_cols = df.filter(regex='^tag')
+    df[boolean_cols] = df[boolean_cols].astype('bool')
 
     return df
 
@@ -150,7 +152,7 @@ def get_downtown_coordinates(df, city_col, state_col, batch_size=10, max_retries
         if not remaining_attempts: # if remaining_attempts is empty then break out of the loop
             break
 
-    # Merge coordinates back into the DataFrame (same as before)
+    # Merge coordinates back into the DataFrame
     for index, row in df.iterrows():
         city_state = row[city_col] + ", " + row[state_col]
         if city_state in coordinates:
@@ -215,7 +217,6 @@ def clean_data(df):
     df['garage'] = df['garage'].fillna(0)
     lon_lat_dict = df[['city', 'lon', 'lat']].groupby('city').mean().transpose().to_dict()
     df = item_replacement(lon_lat_dict, df, 'city', 'lon', 'lat')
-    df[df['lon'].isnull()].shape
     missing_property_dict = {'Boone': {'lon': -93.885490, 'lat': 42.060650},
                 'Garnett': {'lon': 81.2454, 'lat': 32.6063},
                 'Charlton Heights': {'lon': -81.24385, 'lat': 38.13673}}
@@ -250,7 +251,9 @@ def clean_data(df):
     df = encode_tags(df,min_to_drop=5)
     df = get_downtown_coordinates(df=df,city_col='city',state_col='state')
     city_columns = ['city_lat', 'city_lon']
-    df = df.drop(['city', 'state'], axis=1)
+    df[city_columns] = df[city_columns].astype('float')
+    df = df.drop(['city', 'state','property_id'], axis=1)
+    df = pd.get_dummies(df, columns=['type'], dummy_na=True)
     return df
 
 def load_data(folder_name):
