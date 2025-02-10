@@ -33,7 +33,7 @@ def encode_tags(df_original, min_to_drop = 0):
     small_columns_list = small_columns.index.tolist()
     df = df.drop(small_columns_list, axis=1)
     df = pd.merge(df_original, df, how='left', on='property_id')
-    boolean_cols = df.filter(regex='^tag')
+    boolean_cols = df.filter(regex='^tag').columns
     df[boolean_cols] = df[boolean_cols].astype('bool')
 
     return df
@@ -161,8 +161,9 @@ def get_downtown_coordinates(df, city_col, state_col, batch_size=10, max_retries
 
     return df
 
-def clean_data(df):
+def clean_data(df, type_to_drop = 20):
     """Use this to clean all the data from raw data to the final product
+     - This is the EDA cleaning section all combined down into one function, for fully commented and broken down read through EDA sheet
 
     Args:
     df (pandas.DataFrame)
@@ -199,21 +200,25 @@ def clean_data(df):
                                                'baths_full',
                                                 'baths_half',
                                                  'baths_3qtr',
-                                                  'state_code']
+                                                  'state_code',
+                                                   'description',
+                                                    'location',
+                                                     'address',
+                                                      'coordinate',
+                                                      ]
+    #break down the columns that have lists inside them
     desc_df = break_it_down(df['description'])
-    columns_to_drop.append('description')
     df[desc_df.columns] = desc_df
     loc_df = break_it_down(df['location'])
-    columns_to_drop.append('location')
     df[loc_df.columns] = loc_df
     address_df = break_it_down(df['address'])
-    columns_to_drop.append('address')
     df[address_df.columns] = address_df
     coordinate_df = break_it_down(df['coordinate'])
-    columns_to_drop.append('coordinate')
     df[coordinate_df.columns] = coordinate_df
+    #drop rows that are missing the "sold_price", we can't learn from them, drop unneccesary columns
     df = df.dropna(subset=['sold_price'])
     df = df.drop(columns=columns_to_drop, axis=1)
+    #various techniques to fill null values
     df['garage'] = df['garage'].fillna(0)
     lon_lat_dict = df[['city', 'lon', 'lat']].groupby('city').mean().transpose().to_dict()
     df = item_replacement(lon_lat_dict, df, 'city', 'lon', 'lat')
@@ -241,18 +246,20 @@ def clean_data(df):
     df = sqfts_replacement(sqfts_dict, df)
     sqfts_dict_2 = df[['type', 'sqft', 'lot_sqft']].groupby('type').mean().transpose().to_dict()
     df = item_replacement(sqfts_dict_2, df, 'type', 'sqft', 'lot_sqft')
-    int_columns = ['year_built', 'sqft', 'lot_sqft', 'baths','garage','stories','beds', 'postal_code']
+    #split out and hot hit encode the tags
+    df = encode_tags(df, type_to_drop)
+    #replace cities with lon/lat
+    df = get_downtown_coordinates(df=df,city_col='city',state_col='state')
+    #correc the datatypes
+    int_columns = ['year_built', 'sqft', 'lot_sqft', 'baths','garage','stories','beds', 'postal_code', 'sold_price']
     df[int_columns] = df[int_columns].astype(int)
     category_columns = ['type']
     df[category_columns] = df[category_columns].astype('category')
-    float_columns = ['property_lon', 'property_lat']
-    df[float_columns] = df[float_columns].astype('float64')
-    df['sold_price'] = df['sold_price'].astype('int')
-    df = encode_tags(df,min_to_drop=5)
-    df = get_downtown_coordinates(df=df,city_col='city',state_col='state')
-    city_columns = ['city_lat', 'city_lon']
-    df[city_columns] = df[city_columns].astype('float')
+    float_columns = ['city_lat', 'city_lon', 'property_lon', 'property_lat']
+    df[float_columns] = df[float_columns].astype('float')
+    #drop more unneccesary columns
     df = df.drop(['city', 'state','property_id'], axis=1)
+    #encode the type column
     df = pd.get_dummies(df, columns=['type'], dummy_na=True)
     return df
 
