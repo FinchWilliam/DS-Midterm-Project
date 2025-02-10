@@ -2,6 +2,9 @@ import pandas as pd
 #pip install geopy
 from geopy.geocoders import Nominatim 
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, StandardScaler
+from sklearn.decomposition import PCA
 import time
 import numpy as np
 import os
@@ -301,3 +304,59 @@ def load_data(folder_name):
             #print out any files that are not part of it
             print("Not a Json:", file)
     return df
+
+class DataLoader(TransformerMixin):
+    def __init__(self, source_folder_name):
+        self.folder_name = source_folder_name
+
+    def fit(self, X=None, y=None):  
+        return self  
+
+    def transform(self, X=None): 
+        data = load_data(self.folder_name)  
+        return data
+
+class DataCleaner(TransformerMixin):
+    def __init__(self, num_type_to_drop):
+        self.to_drop = num_type_to_drop
+
+    def fit(self, X=None, y=None):
+        return self
+
+    def transform(self, X):  
+        cleaned_data = clean_data(X, self.to_drop)  
+        return cleaned_data
+    
+class Scalar_numeric(TransformerMixin):
+    def __init__(self):
+        self.numeric_columns = None
+        self.scalar = StandardScaler()
+        
+    def fit(self, X, y=None):
+        self.numeric_columns = list(X.select_dtypes(include=['int', 'float']).columns)
+        self.scalar.fit(X[self.numeric_columns])  
+        return self
+    
+    def transform(self, X, y=None):
+        X = X[self.numeric_columns].copy()
+        X = self.scalar.transform(X)
+        return X
+    
+class PCA_bool(TransformerMixin):
+    def __init__(self, n_components):
+        self.n_components = n_components
+        self.pca = PCA(n_components=self.n_components)
+        self.bool_columns = None
+
+    def fit(self, X, y=None):
+        self.bool_columns = X.select_dtypes(include=['bool']).columns
+        self.pca.fit(X[self.bool_columns])
+        return self
+    
+    def transform(self, X,y=None):
+        X = X[self.bool_columns].copy()
+        X = self.pca.transform(X)
+        return X    
+
+
+
