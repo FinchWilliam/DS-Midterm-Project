@@ -9,12 +9,25 @@
 - Drop unrequired columns
 - Fill in all nulls as required
 - Replace some categorical values with numerical (cities/state got replaced by longitude/latitude)
-- One hit encoding on the remaining categorical values
+- One-hot encoding on the remaining categorical values
 
 ### Trial various Machine Learning Algorithms
-- Rim can you please fill in this part? :)
+To determine the best model for predicting housing prices, we experimented with multiple machine learning algorithms:
+- Linear Regression – A simple baseline model for understanding linear relationships.
+- Decision Trees – Used to capture non-linear patterns in the data.
+- Random Forest – An ensemble method that reduces overfitting and improves generalization.
+- Gradient Boosting (XGBoost & LightGBM) – Explored boosting techniques for improved predictive performance.
+- Support Vector Machines – Attempted, but computationally expensive for large datasets.
+Each model was evaluated using RMSE (Root Mean Squared Error) and R² scores to determine its effectiveness.
 ### Hyperparamater testing to streamline algorithms
-- Rim can you please fill in this part? :)
+To optimize model performance, we performed hyperparameter tuning using:
+- GridSearchCV – Exhaustive search over specified hyperparameter values.
+- RandomizedSearchCV – More efficient search for optimal hyperparameters.
+
+Key hyperparameters tuned included:
+- Learning rate, max depth, and number of estimators for boosting models.
+- Minimum samples per leaf and maximum tree depth for decision trees.
+- Regularization parameters (L1/L2) for linear regression.
 
 ### Pipeline building
 - Create a pipeline that will load and clean data quickly and easily
@@ -22,7 +35,11 @@
     - Unfortunately these must remain as seperate pipelines so a train/test/split can be performed on the data between first and second pipelines.
 
 ## Results
-(fill in how your model performed) --- Rim pleeasee :)
+The model's performance based on RMSE and R² scores is as follows:
+
+- Best Model: Random forest
+- RMSE: 223,739.53
+- R² Score: 0.5045
 
 ## Challenges 
 ### Various challenges we faced included:
