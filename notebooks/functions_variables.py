@@ -6,7 +6,7 @@ from sklearn.base import TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, classification_report
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import KFold
 import time
 import numpy as np
@@ -17,6 +17,7 @@ import itertools
 def encode_tags(df_original, min_to_drop = 0):
 
     """Use this function to manually encode tags from each sale.
+
     You could also provide another argument to filter out low 
     counts of tags to keep cardinality to a minimum.
        
@@ -57,7 +58,6 @@ def break_it_down(column):
     col_df = pd.DataFrame(col_dict).transpose()
     return col_df
 
-
 def item_replacement(dict, df, col_main, col_1_to_replace, col_2_to_replace):
     """Use this function to iterate through a dictionary replacing
       all the nulls in 2 seperate columns based off of the contents
@@ -78,8 +78,6 @@ def item_replacement(dict, df, col_main, col_1_to_replace, col_2_to_replace):
         df.loc[(df[col_main] == main_column) & (df[col_2_to_replace].isna()), col_2_to_replace] = replacement_columns[col_2_to_replace]
     return df
 
-
-
 def sqfts_replacement(dict, df):
     """Use this function to iterate through a dictionary replacing
       all the nulls in 2 seperate columns based off of the contents
@@ -95,8 +93,6 @@ def sqfts_replacement(dict, df):
         df.loc[(df['type'] == type) & (df['city'] == city) & (df['sqft'].isna()), 'sqft'] = numbers['sqft']
         df.loc[(df['type'] == type) & (df['city'] == city) & (df['lot_sqft'].isna()), 'lot_sqft'] = numbers['lot_sqft']
     return df
-
-
 
 def get_downtown_coordinates(df, city_col, state_col, batch_size=10, max_retries=3): 
     """Gets latitude and longitude for downtown regions of city/state combinations from DataFrame columns,
@@ -309,6 +305,9 @@ def load_data(folder_name):
     return df
 
 class DataLoader(TransformerMixin):
+    """
+    Quick class to hold the load data function
+    """
     def __init__(self, source_folder_name):
         self.folder_name = source_folder_name
 
@@ -320,6 +319,9 @@ class DataLoader(TransformerMixin):
         return data
 
 class DataCleaner(TransformerMixin):
+    """
+    Quick class to hold the clean_data function
+    """
     def __init__(self, num_type_to_drop = 20):
         self.to_drop = num_type_to_drop
 
@@ -331,6 +333,10 @@ class DataCleaner(TransformerMixin):
         return cleaned_data
     
 class Scalar_numeric(TransformerMixin):
+    """
+    Takes only the numeric columns and scales them, returns only numeric columns
+    """
+
     def __init__(self):
         self.numeric_columns = None
         self.scalar = StandardScaler()
@@ -346,6 +352,9 @@ class Scalar_numeric(TransformerMixin):
         return X
     
 class PCA_bool(TransformerMixin):
+    """
+    Takes only the boolean columns and performs PCA filtering on them down to 10 columns
+    """
     def __init__(self, n_components):
         self.n_components = n_components
         self.pca = PCA(n_components=self.n_components)
@@ -361,26 +370,15 @@ class PCA_bool(TransformerMixin):
         X = self.pca.transform(X)
         return X    
 
-class data_splitter(TransformerMixin):
-    def __init__(self):
-        self.y_col = 'sold_price'
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        X = X.copy
-        self.y = X[self.y_col]
-        self.X = X.drop(self.y_col, axis = 1)
-        return self.X 
-
-    def get_y(self):  
-      return self.y
-
-
-
 def custom_cross_validation(X_train, y_train, n_splits=5):
-    '''Creates n_splits sets of training and validation folds'''
+    """
+    Creates n_splits sets of training and validation folds
+    
+    Args:         
+        X_train(DataFrame): data to be splt and validated
+        y_train(series): target series
+        n_splits (int): number of times to perform k folds
+    """
     training_data = X_train.copy()
     training_data["target"] = y_train  
 
@@ -397,7 +395,14 @@ def custom_cross_validation(X_train, y_train, n_splits=5):
     return training_folds, validation_folds
 
 def hyperparameter_search(training_folds, validation_folds, param_grid):
-    '''Finds the best hyperparameter settings using cross-validation'''
+    """
+    Searches through the paramaters and finds the best combination
+
+    Args:
+        training_folds(dataframe): folds to train model with
+        validation_folds(dataframe): folds to test model with
+        param_grid(dictionary): set of conditions to test against
+    """
 
     best_score = float('inf')  
     best_params = None  
@@ -428,6 +433,13 @@ def hyperparameter_search(training_folds, validation_folds, param_grid):
     return best_params
 
 def CalculateScores(y_pred, y_test):
+    """
+    Calculate and return the rmse, mae and r2 for the supplied data
+
+    Args:
+        y_pred(series): result of the model prediction
+        y_test(series): validation set saved from initial
+    """
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     mae = mean_absolute_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
