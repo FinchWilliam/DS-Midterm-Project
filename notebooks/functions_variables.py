@@ -2,14 +2,17 @@ import pandas as pd
 #pip install geopy
 from geopy.geocoders import Nominatim 
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, StandardScaler
+from sklearn.base import TransformerMixin
+from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, classification_report
+from sklearn.model_selection import KFold
 import time
 import numpy as np
 import os
 import json
-
+import itertools
 
 def encode_tags(df_original, min_to_drop = 0):
 
@@ -317,7 +320,7 @@ class DataLoader(TransformerMixin):
         return data
 
 class DataCleaner(TransformerMixin):
-    def __init__(self, num_type_to_drop):
+    def __init__(self, num_type_to_drop = 20):
         self.to_drop = num_type_to_drop
 
     def fit(self, X=None, y=None):
@@ -358,5 +361,75 @@ class PCA_bool(TransformerMixin):
         X = self.pca.transform(X)
         return X    
 
+class data_splitter(TransformerMixin):
+    def __init__(self):
+        self.y_col = 'sold_price'
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy
+        self.y = X[self.y_col]
+        self.X = X.drop(self.y_col, axis = 1)
+        return self.X 
+
+    def get_y(self):  
+      return self.y
 
 
+
+def custom_cross_validation(X_train, y_train, n_splits=5):
+    '''Creates n_splits sets of training and validation folds'''
+    training_data = X_train.copy()
+    training_data["target"] = y_train  
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)  
+    training_folds, validation_folds = [], []
+
+    for train_idx, val_idx in kf.split(training_data):
+        train_fold = training_data.iloc[train_idx]
+        val_fold = training_data.iloc[val_idx]
+        
+        training_folds.append(train_fold)
+        validation_folds.append(val_fold)
+
+    return training_folds, validation_folds
+
+def hyperparameter_search(training_folds, validation_folds, param_grid):
+    '''Finds the best hyperparameter settings using cross-validation'''
+
+    best_score = float('inf')  
+    best_params = None  
+
+    # create all hyperparameter combinations
+    keys, values = zip(*param_grid.items())
+    param_combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+
+    for params in param_combinations:
+        scores = []
+
+        for train_fold, val_fold in zip(training_folds, validation_folds):
+            X_train, y_train = train_fold.drop(columns=["target"]), train_fold["target"]
+            X_val, y_val = val_fold.drop(columns=["target"]), val_fold["target"]
+
+            model = RandomForestRegressor(**params, random_state=42)
+            model.fit(X_train, y_train)
+            predictions = model.predict(X_val)
+            score = mean_squared_error(y_val, predictions)
+            scores.append(score)
+
+        avg_score = np.mean(scores)
+
+        if avg_score < best_score:
+            best_score = avg_score
+            best_params = params
+
+    return best_params
+
+def CalculateScores(y_pred, y_test):
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    print(f"RMSE: {rmse:.2f}, MAE: {mae:.2f}, R^2: {r2:.4f}\n")
+    return rmse, mae, r2
